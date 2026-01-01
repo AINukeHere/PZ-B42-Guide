@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>좀보이드 고급 대장간 테크트리 </title>
+    <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+    <script src="recipe_data.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f5f5f5;
+        }
+        #cy {
+            width: 100%;
+            height: 90vh;
+            border: 1px solid #ddd;
+            background-color: white;
+        }
+        .legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #333;
+            margin-right: 10px;
+        }
+        .info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <h1>좀보이드 고급 제작소 테크트리 (인터랙티브)</h1>
+    <div class="legend">
+        <h3 style="margin-top: 0;">범례</h3>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #c8e6c9; border-width: 4px;"></div>
+            <span>고급 제작소</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #e8f5e9;"></div>
+            <span>제작 아이템</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #e1f5fe;"></div>
+            <span>기본 자원</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #ffcdd2;"></div>
+            <span>파밍 아이템</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #fff9c4;"></div>
+            <span>도구</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #d1c4e9;"></div>
+            <span>제작소</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #fff3e0; border-style: dashed;"></div>
+            <span>옵션 (여러 가지 중 하나)</span>
+        </div>
+        <div style="margin-top: 10px; font-size: 11px; color: #666;">
+            <div>• 재료 노드 클릭: 레시피 그룹 표시</div>
+            <div>• 옵션 노드 클릭: 옵션 재료 그룹 표시</div>
+            <div>• 그룹 우클릭: 그룹 삭제</div>
+        </div>
+    </div>
+    <div id="cy"></div>
+    <div class="info">
+        재료 노드를 클릭하여 레시피를 확장하세요
+    </div>
+
+    <script>
+        var cy = cytoscape({
+            container: document.getElementById('cy'),
+            elements: [],
+            wheelSensitivity: 0.2, // 휠 확대/축소 감도 (기본값 1, 낮을수록 느림)
+            minZoom: 0.1, // 최소 확대 비율
+            maxZoom: 3, // 최대 확대 비율
+            style: [
+                {
+                    selector: 'node[type="final"]',
+                    style: {
+                        'background-color': '#c8e6c9',
+                        'border-color': '#1b5e20',
+                        'border-width': 4,
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '250px',
+                        'font-size': '14px',
+                        'font-weight': 'bold',
+                        'padding': '12px',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="item"]',
+                    style: {
+                        'background-color': '#e8f5e9',
+                        'border-color': '#2e7d32',
+                        'border-width': 2,
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '200px',
+                        'font-size': '11px',
+                        'padding': '10px',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="raw"]',
+                    style: {
+                        'background-color': '#e1f5fe',
+                        'border-color': '#0277bd',
+                        'border-width': 2,
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '200px',
+                        'font-size': '11px',
+                        'padding': '10px',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="loot"]',
+                    style: {
+                        'background-color': '#ffcdd2',
+                        'border-color': '#b71c1c',
+                        'border-width': 2,
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '200px',
+                        'font-size': '11px',
+                        'padding': '10px',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="tool"]',
+                    style: {
+                        'background-color': '#fff9c4',
+                        'border-color': '#fbc02d',
+                        'border-width': 2,
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '200px',
+                        'font-size': '11px',
+                        'padding': '10px',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="station"]',
+                    style: {
+                        'background-color': '#d1c4e9',
+                        'border-color': '#4527a0',
+                        'border-width': 2,
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '200px',
+                        'font-size': '11px',
+                        'padding': '10px',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="optional"]',
+                    style: {
+                        'background-color': '#fff3e0',
+                        'border-color': '#e65100',
+                        'border-width': 2,
+                        'border-style': 'dashed',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '200px',
+                        'font-size': '11px',
+                        'padding': '10px',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node.recipe-group',
+                    style: {
+                        'background-color': 'rgba(200, 230, 201, 0.2)',
+                        'border-color': '#4caf50',
+                        'border-width': 2,
+                        'border-style': 'solid',
+                        'label': 'data(label)',
+                        'text-valign': 'top',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'font-size': '11px',
+                        'font-weight': 'bold',
+                        'padding': '10px',
+                        'shape': 'round-rectangle',
+                        'compound-sizing-wrt-labels': 'include'
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 2,
+                        'line-color': '#666',
+                        'target-arrow-color': '#666',
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier',
+                        'control-point-step-size': 40,
+                        'control-point-distances': [-40],
+                        'arrow-scale': 1.5
+                    }
+                },
+                {
+                    selector: 'edge.optional-edge',
+                    style: {
+                        'line-style': 'dashed',
+                        'line-dash-pattern': [5, 5],
+                        'line-color': '#e65100',
+                        'target-arrow-color': '#e65100'
+                    }
+                },
+                {
+                    selector: 'node.highlighted',
+                    style: {
+                        'background-color': '#ffeb3b',
+                        'border-color': '#f57f17',
+                        'border-width': 4,
+                        'z-index': 999
+                    }
+                },
+                {
+                    selector: 'edge.highlighted',
+                    style: {
+                        'line-color': '#f57f17',
+                        'target-arrow-color': '#f57f17',
+                        'width': 4,
+                        'z-index': 998
+                    }
+                },
+            ],
+            layout: {
+                name: 'preset'
+            }
+        });
+
+        // 노드 카운터 (독립적인 노드 ID 생성)
+        var nodeCounter = 0;
+        function getUniqueNodeId(baseId) {
+            return baseId + '_' + (nodeCounter++);
+        }
+
+        // 노드가 펼칠 수 있는지 확인하는 함수
+        function isExpandable(originalId, type) {
+            if (type === 'optional') {
+                // 옵션 노드인 경우 옵션 재료가 있는지 확인
+                var hasOptionMaterials = false;
+                Object.keys(recipeData).forEach(function(targetId) {
+                    var recipe = recipeData[targetId];
+                    if (recipe.optional && recipe.optional[originalId] && recipe.optional[originalId].length >= 2) {
+                        hasOptionMaterials = true;
+                    }
+                });
+                return hasOptionMaterials;
+            } else {
+                // 일반 노드인 경우 레시피가 있는지 확인
+                return recipeData[originalId] && recipeData[originalId].materials && recipeData[originalId].materials.length >= 2;
+            }
+        }
+
+        // 노드 생성 함수
+        function createNode(id, label, type, position) {
+            var uniqueId = getUniqueNodeId(id);
+            var expandable = isExpandable(id, type);
+            var nodeData = {
+                data: {
+                    id: uniqueId,
+                    label: label,
+                    type: type,
+                    originalId: id,
+                    expandable: expandable
+                }
+            };
+            if (position) {
+                nodeData.position = position;
+            }
+            cy.add(nodeData);
+            var node = cy.getElementById(uniqueId);
+            
+            // 펼칠 수 있는 노드인 경우 클래스 추가 및 아이콘 설정
+            if (expandable) {
+                node.addClass('expandable');
+                // 레이블에 아이콘 추가 (오른쪽 상단에 표시되도록)
+                var currentLabel = node.data('label');
+                // 아이콘이 이미 없으면 추가
+                if (currentLabel.indexOf('▶') === -1) {
+                    // 레이블을 두 줄로 나누어 아이콘을 오른쪽 상단에 배치
+                    // 첫 줄: 원본 텍스트, 두 줄: 공백 + 아이콘
+                    var lines = currentLabel.split('\n');
+                    if (lines.length === 1) {
+                        // 한 줄인 경우 아이콘을 오른쪽에 추가
+                        node.data('label', currentLabel + '\n▶');
+                    } else {
+                        // 여러 줄인 경우 마지막 줄에 아이콘 추가
+                        lines[lines.length - 1] = lines[lines.length - 1] + ' ▶';
+                        node.data('label', lines.join('\n'));
+                    }
+                }
+            }
+            
+            // 노드 크기를 텍스트에 맞게 조정 (렌더링 후)
+            setTimeout(function() {
+                try {
+                    var renderedWidth = node.renderedWidth();
+                    var renderedHeight = node.renderedHeight();
+                    if (renderedWidth > 0 && renderedHeight > 0) {
+                        // 패딩과 테두리를 고려하여 크기 조정
+                        var padding = parseFloat(node.style('padding')) || 10;
+                        var borderWidth = parseFloat(node.style('border-width')) || 2;
+                        var totalPadding = (padding + borderWidth) * 2;
+                        var newWidth = Math.max(renderedWidth + totalPadding, 80);
+                        var newHeight = Math.max(renderedHeight + totalPadding, 40);
+                        node.style('width', newWidth + 'px');
+                        node.style('height', newHeight + 'px');
+                        
+                        // 그룹 내 노드인 경우 그룹 내 노드들 재정렬
+                        var parent = node.parent();
+                        if (parent.length > 0 && parent.hasClass('recipe-group')) {
+                            setTimeout(function() {
+                                layoutGroupNodesHorizontally(parent);
+                            }, 50);
+                        }
+                    }
+                } catch(e) {
+                    // 렌더링이 완료되지 않았으면 무시
+                }
+            }, 200);
+            
+            return node;
+        }
+
+        // 엣지 생성 함수
+        function createEdge(sourceId, targetId, isOptional) {
+            var edgeId = 'e_' + sourceId + '_' + targetId + '_' + Date.now();
+            cy.add({
+                data: {
+                    id: edgeId,
+                    source: sourceId,
+                    target: targetId
+                },
+                classes: isOptional ? 'optional-edge' : ''
+            });
+        }
+
+        // 그룹 간 겹침 체크 함수
+        function checkGroupOverlap(groupNode, x, y, width, height) {
+            var allGroups = cy.nodes('.recipe-group');
+            var minSpacing = 20; // 그룹 간 최소 간격
+            
+            for (var i = 0; i < allGroups.length; i++) {
+                var otherGroup = allGroups[i];
+                if (otherGroup.id() === groupNode.id()) continue;
+                
+                var otherPos = otherGroup.position();
+                var otherWidth = parseFloat(otherGroup.style('width')) || 200;
+                var otherHeight = parseFloat(otherGroup.style('height')) || 100;
+                
+                // 경계 박스 계산
+                var left1 = x - width / 2;
+                var right1 = x + width / 2;
+                var top1 = y - height / 2;
+                var bottom1 = y + height / 2;
+                
+                var left2 = otherPos.x - otherWidth / 2;
+                var right2 = otherPos.x + otherWidth / 2;
+                var top2 = otherPos.y - otherHeight / 2;
+                var bottom2 = otherPos.y + otherHeight / 2;
+                
+                // 겹침 체크 (간격 포함)
+                if (!(right1 + minSpacing < left2 || left1 - minSpacing > right2 || 
+                      bottom1 + minSpacing < top2 || top1 - minSpacing > bottom2)) {
+                    return true; // 겹침
+                }
+            }
+            return false; // 겹치지 않음
+        }
+
+        // 겹치지 않는 위치 찾기
+        function findNonOverlappingPosition(groupNode, startX, startY, width, height) {
+            var minSpacing = 20;
+            var stepY = 80; // Y축 이동 간격 (줄임)
+            var stepX = 50; // X축 이동 간격
+            var maxAttempts = 20;
+            
+            // 먼저 아래로 시도
+            for (var i = 0; i < maxAttempts; i++) {
+                var testY = startY + (i * stepY);
+                if (!checkGroupOverlap(groupNode, startX, testY, width, height)) {
+                    return { x: startX, y: testY };
+                }
+            }
+            
+            // 아래로 안되면 좌우로 시도
+            for (var offset = 1; offset <= 5; offset++) {
+                // 왼쪽
+                var leftX = startX - (offset * stepX);
+                if (!checkGroupOverlap(groupNode, leftX, startY, width, height)) {
+                    return { x: leftX, y: startY };
+                }
+                
+                // 오른쪽
+                var rightX = startX + (offset * stepX);
+                if (!checkGroupOverlap(groupNode, rightX, startY, width, height)) {
+                    return { x: rightX, y: startY };
+                }
+            }
+            
+            // 모두 실패하면 원래 위치 반환
+            return { x: startX, y: startY };
+        }
+
+        // 레시피 그룹 생성 함수 (클릭된 노드 아래에 배치)
+        function createRecipeGroup(targetNodeId, targetLabel) {
+            var targetNode = cy.getElementById(targetNodeId);
+            var recipe = recipeData[targetNode.data('originalId')];
+            
+            if (!recipe || !recipe.materials || recipe.materials.length < 2) {
+                return null;
+            }
+
+            // 이미 그룹이 있는지 다시 확인 (이중 체크) - 노드로 들어오는 엣지 확인
+            var incomerEdges = targetNode.incomers('edge');
+            if (incomerEdges.length > 0) {
+                targetNode.data('creatingGroup', false);
+                return null; // 이미 연결선이 있음 = 그룹이 이미 생성됨
+            }
+
+            var groupId = 'group_' + targetNodeId + '_' + Date.now();
+            
+            // 레이블에서 아이콘 제거 (그룹 레이블에는 아이콘 없음)
+            var cleanLabel = targetLabel.replace(/\s*▶\s*/g, '').replace(/\n▶/g, '').trim();
+            
+            // 그룹 노드 생성
+            cy.add({
+                data: {
+                    id: groupId,
+                    label: cleanLabel + ' 레시피',
+                    type: 'group'
+                },
+                classes: 'recipe-group'
+            });
+
+            var groupNode = cy.getElementById(groupId);
+            var nodeSpacing = 30;
+            var totalWidth = 0;
+            var nodeSizes = [];
+
+            // 재료 노드들 생성 및 그룹에 추가
+            recipe.materials.forEach(function(materialId) {
+                var materialInfo = nodeInfo[materialId];
+                if (!materialInfo) return;
+
+                var materialNode = createNode(materialId, materialInfo.label, materialInfo.type);
+                var width = materialNode.width() || 120;
+                nodeSizes.push({ node: materialNode, width: width });
+                totalWidth += width;
+
+                materialNode.move({ parent: groupId });
+                createEdge(materialNode.id(), targetNodeId, false);
+            });
+
+            // 그룹 크기 계산
+            var spacingWidth = nodeSpacing * (nodeSizes.length - 1);
+            var totalLayoutWidth = totalWidth + spacingWidth;
+            var maxHeight = Math.max.apply(null, nodeSizes.map(function(item) { return item.node.height() || 50; }));
+
+            var groupWidth = Math.max(totalLayoutWidth + 50, 150);
+            var groupHeight = Math.max(maxHeight + 50, 80);
+            
+            groupNode.style('width', groupWidth);
+            groupNode.style('height', groupHeight);
+
+            // 클릭된 노드 아래에 그룹 배치 (겹침 방지)
+            var targetPos = targetNode.position();
+            var startY = targetPos.y + 100; // 노드 아래 100px (간격 줄임)
+            var startX = targetPos.x;
+            
+            // 겹치지 않는 위치 찾기
+            var position = findNonOverlappingPosition(groupNode, startX, startY, groupWidth, groupHeight);
+            
+            groupNode.position({
+                x: position.x,
+                y: position.y
+            });
+
+            // 그룹 내 노드들을 가로 일렬로 배치 (비동기로 크기 조정 후 재정렬)
+            setTimeout(function() {
+                layoutGroupNodesHorizontally(groupNode);
+                
+                // 레시피 그룹이 추가된 후, 현재 마우스가 올라가 있는 노드가 있다면 하이라이팅 다시 검사
+                if (hoveredNode && hoveredNode.id() === targetNode.id()) {
+                    applyHighlight(hoveredNode);
+                }
+            }, 150);
+
+            // 그룹 생성 완료 플래그 해제
+            targetNode.data('creatingGroup', false);
+            return groupNode;
+        }
+
+        // 옵션 재료 그룹 생성 함수
+        function createOptionGroup(optionNodeId, optionLabel) {
+            var optionNode = cy.getElementById(optionNodeId);
+            var originalId = optionNode.data('originalId');
+            
+            // 이미 그룹이 있는지 다시 확인 (이중 체크) - 노드로 들어오는 엣지 확인
+            var incomerEdges = optionNode.incomers('edge');
+            if (incomerEdges.length > 0) {
+                optionNode.data('creatingGroup', false);
+                return null; // 이미 연결선이 있음 = 그룹이 이미 생성됨
+            }
+            
+            var optionMaterials = [];
+            Object.keys(recipeData).forEach(function(targetId) {
+                var recipe = recipeData[targetId];
+                if (recipe.optional && recipe.optional[originalId]) {
+                    recipe.optional[originalId].forEach(function(materialId) {
+                        if (optionMaterials.indexOf(materialId) === -1) {
+                            optionMaterials.push(materialId);
+                        }
+                    });
+                }
+            });
+
+            if (optionMaterials.length < 2) {
+                return null;
+            }
+
+            var groupId = 'option_group_' + optionNodeId + '_' + Date.now();
+            
+            // 레이블에서 아이콘 제거 (그룹 레이블에는 아이콘 없음)
+            var cleanLabel = optionLabel.replace(/\s*▶\s*/g, '').replace(/\n▶/g, '').trim();
+            
+            cy.add({
+                data: {
+                    id: groupId,
+                    label: cleanLabel + ' 재료',
+                    type: 'group'
+                },
+                classes: 'recipe-group'
+            });
+
+            var groupNode = cy.getElementById(groupId);
+            var nodeSpacing = 30;
+            var totalWidth = 0;
+            var nodeSizes = [];
+
+            optionMaterials.forEach(function(materialId) {
+                var materialInfo = nodeInfo[materialId];
+                if (!materialInfo) return;
+
+                var materialNode = createNode(materialId, materialInfo.label, materialInfo.type);
+                var width = materialNode.width() || 120;
+                nodeSizes.push({ node: materialNode, width: width });
+                totalWidth += width;
+
+                materialNode.move({ parent: groupId });
+                createEdge(materialNode.id(), optionNodeId, true);
+            });
+
+            var spacingWidth = nodeSpacing * (nodeSizes.length - 1);
+            var totalLayoutWidth = totalWidth + spacingWidth;
+            var maxHeight = Math.max.apply(null, nodeSizes.map(function(item) { return item.node.height() || 50; }));
+
+            var groupWidth = Math.max(totalLayoutWidth + 50, 150);
+            var groupHeight = Math.max(maxHeight + 50, 80);
+            
+            groupNode.style('width', groupWidth);
+            groupNode.style('height', groupHeight);
+
+            // 클릭된 노드 아래에 그룹 배치 (겹침 방지)
+            var optionPos = optionNode.position();
+            var startY = optionPos.y + 100; // 노드 아래 100px (간격 줄임)
+            var startX = optionPos.x;
+            
+            // 겹치지 않는 위치 찾기
+            var position = findNonOverlappingPosition(groupNode, startX, startY, groupWidth, groupHeight);
+            
+            groupNode.position({
+                x: position.x,
+                y: position.y
+            });
+
+            // 그룹 내 노드들을 가로 일렬로 배치 (비동기로 크기 조정 후 재정렬)
+            setTimeout(function() {
+                layoutGroupNodesHorizontally(groupNode);
+                
+                // 옵션 그룹이 추가된 후, 현재 마우스가 올라가 있는 노드가 있다면 하이라이팅 다시 검사
+                if (hoveredNode && hoveredNode.id() === optionNode.id()) {
+                    applyHighlight(hoveredNode);
+                }
+            }, 150);
+
+            // 그룹 생성 완료 플래그 해제
+            optionNode.data('creatingGroup', false);
+            return groupNode;
+        }
+
+        // 초기 그래프 생성 (최종 목표 노드 3개만)
+        function initGraph() {
+            var finalTargets = ['Kiln_Large', 'Blast_Furnace', 'Advanced_Forge'];
+            var initialPositions = {
+                'Kiln_Large': { x: 200, y: 100 },
+                'Blast_Furnace': { x: 500, y: 100 },
+                'Advanced_Forge': { x: 800, y: 100 }
+            };
+            
+            finalTargets.forEach(function(targetId) {
+                var targetInfo = nodeInfo[targetId];
+                createNode(targetId, targetInfo.label, targetInfo.type, initialPositions[targetId]);
+            });
+        }
+
+        // 하이라이팅 초기화
+        function clearHighlight() {
+            cy.nodes().removeClass('highlighted');
+            cy.edges().removeClass('highlighted');
+        }
+
+        // 재귀적으로 모든 하위 재료 노드를 찾는 함수
+        function getAllDescendantMaterials(node, visited) {
+            if (!visited) visited = {};
+            var nodeId = node.id();
+            if (visited[nodeId]) return [];
+            visited[nodeId] = true;
+            
+            var materials = [];
+            var incomerNodes = node.incomers('node').not('.recipe-group');
+            
+            incomerNodes.forEach(function(materialNode) {
+                materials.push(materialNode);
+                // 재귀적으로 하위 재료도 찾기
+                var subMaterials = getAllDescendantMaterials(materialNode, visited);
+                materials = materials.concat(subMaterials);
+            });
+            
+            return materials;
+        }
+
+        // 말단 노드인지 확인 (더 이상 재료가 없는 노드)
+        function isLeafNode(node) {
+            // 그룹 노드는 제외
+            if (node.hasClass('recipe-group')) return false;
+            // 들어오는 노드가 없으면 말단 노드
+            return node.incomers('node').not('.recipe-group').length === 0;
+        }
+
+        // 특정 노드에 대한 하이라이팅 적용 (말단 노드만)
+        function applyHighlight(node) {
+            // 그룹 노드는 하이라이팅 제외
+            if (node.hasClass('recipe-group')) return;
+            
+            // 기존 하이라이팅 제거
+            clearHighlight();
+            
+            // 모든 하위 재료 노드 찾기
+            var allMaterials = getAllDescendantMaterials(node);
+            
+            // 말단 노드만 필터링
+            var leafNodes = [];
+            for (var i = 0; i < allMaterials.length; i++) {
+                if (isLeafNode(allMaterials[i])) {
+                    leafNodes.push(allMaterials[i]);
+                }
+            }
+            
+            // 말단 노드들과 연결된 엣지 찾기
+            var leafEdges = cy.collection();
+            for (var i = 0; i < leafNodes.length; i++) {
+                var leafNode = leafNodes[i];
+                // 말단 노드로 들어오는 엣지들 (말단 노드가 타겟인 엣지)
+                var incomerEdges = leafNode.incomers('edge');
+                leafEdges = leafEdges.union(incomerEdges);
+            }
+            
+            // 하이라이팅 적용
+            for (var i = 0; i < leafNodes.length; i++) {
+                leafNodes[i].addClass('highlighted');
+            }
+            leafEdges.addClass('highlighted');
+        }
+
+        // 현재 마우스가 올라가 있는 노드 추적
+        var hoveredNode = null;
+
+        // 노드에 마우스를 올렸을 때 재료 하이라이팅 (하위 1단계만)
+        cy.on('mouseover', 'node', function(evt) {
+            var node = evt.target;
+            hoveredNode = node;
+            applyHighlight(node);
+        });
+
+
+        // 그룹 내 노드들을 가로 일렬로 재정렬하는 함수
+        function layoutGroupNodesHorizontally(groupNode) {
+            var children = groupNode.children();
+            if (children.length === 0) return;
+
+            var nodeSpacing = 30;
+            var totalWidth = 0;
+            var nodeSizes = [];
+
+            children.forEach(function(child) {
+                var width = parseFloat(child.style('width')) || child.renderedWidth() || 120;
+                var height = parseFloat(child.style('height')) || child.renderedHeight() || 50;
+                nodeSizes.push({ node: child, width: width, height: height });
+                totalWidth += width;
+            });
+
+            var spacingWidth = nodeSpacing * (children.length - 1);
+            var totalLayoutWidth = totalWidth + spacingWidth;
+            var maxHeight = Math.max.apply(null, nodeSizes.map(function(item) { return item.height; }));
+
+            // 그룹 크기 조정
+            groupNode.style('width', Math.max(totalLayoutWidth + 50, 150));
+            groupNode.style('height', Math.max(maxHeight + 50, 80));
+
+            // 그룹 위치 기준으로 노드 배치
+            var groupPos = groupNode.position();
+            var startX = groupPos.x - totalLayoutWidth / 2;
+            var currentX = startX;
+
+            nodeSizes.forEach(function(item) {
+                item.node.position({
+                    x: currentX + item.width / 2,
+                    y: groupPos.y
+                });
+                currentX += item.width + nodeSpacing;
+            });
+        }
+
+        // 마우스가 노드에서 벗어났을 때 하이라이팅 제거
+        cy.on('mouseout', 'node', function(evt) {
+            var node = evt.target;
+            if (hoveredNode && hoveredNode.id() === node.id()) {
+                hoveredNode = null;
+            }
+            clearHighlight();
+        });
+
+        // 노드 클릭 이벤트
+        cy.on('tap', 'node', function(evt) {
+            var node = evt.target;
+            if (node.hasClass('recipe-group')) return;
+            
+            var nodeType = node.data('type');
+            var originalId = node.data('originalId');
+            
+            // 클릭한 노드로 들어오는 엣지가 있는지 확인 (이미 그룹이 연결되어 있는지)
+            var incomerEdges = node.incomers('edge');
+            if (incomerEdges.length > 0) {
+                return; // 이미 연결선이 있음 = 그룹이 이미 생성됨
+            }
+
+            // 클릭 이벤트 중복 방지를 위한 플래그 체크
+            if (node.data('creatingGroup')) {
+                return; // 이미 그룹 생성 중
+            }
+            node.data('creatingGroup', true);
+
+            if (nodeType === 'optional') {
+                var optionGroup = createOptionGroup(node.id(), node.data('label'));
+                if (!optionGroup) {
+                    node.data('creatingGroup', false);
+                }
+            } else if (recipeData[originalId]) {
+                var recipeGroup = createRecipeGroup(node.id(), node.data('label'));
+                if (!recipeGroup) {
+                    node.data('creatingGroup', false);
+                }
+            } else {
+                node.data('creatingGroup', false);
+            }
+            
+            // 레이아웃 재실행하지 않음 (기존 위치 유지)
+        });
+
+        // 그룹과 그 하위 그룹들을 재귀적으로 삭제하는 함수
+        function deleteGroupRecursively(group) {
+            if (!group || !group.hasClass('recipe-group')) {
+                return;
+            }
+            
+            // 그룹 내부의 모든 노드 찾기 (직접 자식만)
+            var children = group.children();
+            var childGroups = []; // 하위 그룹들을 저장할 배열
+            var processedGroupIds = {}; // 이미 처리한 그룹 ID 추적
+            
+            // 1단계: 하위 그룹 찾기
+            // 그룹 내부의 각 노드로 들어오는 엣지의 소스 노드를 확인
+            // 그 소스 노드가 다른 그룹의 자식이면, 그 그룹이 하위 그룹
+            children.forEach(function(child) {
+                // 일반 노드인 경우에만 확인
+                if (!child.hasClass('recipe-group')) {
+                    var incomerEdges = child.incomers('edge');
+                    incomerEdges.forEach(function(edge) {
+                        var sourceNode = edge.source();
+                        // 소스 노드의 부모 그룹 확인
+                        var parentGroup = sourceNode.parent();
+                        if (parentGroup.length > 0 && 
+                            parentGroup.hasClass('recipe-group') && 
+                            parentGroup.id() !== group.id() &&
+                            !processedGroupIds[parentGroup.id()]) {
+                            processedGroupIds[parentGroup.id()] = true;
+                            childGroups.push(parentGroup);
+                        }
+                    });
+                }
+            });
+            
+            // 2단계: 하위 그룹들을 재귀적으로 삭제
+            childGroups.forEach(function(childGroup) {
+                deleteGroupRecursively(childGroup);
+            });
+            
+            // 3단계: 그룹 내부의 일반 노드들 삭제
+            children.forEach(function(child) {
+                // 일반 노드만 삭제 (그룹은 이미 위에서 삭제됨)
+                if (!child.hasClass('recipe-group')) {
+                    child.connectedEdges().remove();
+                    child.remove();
+                }
+            });
+            
+            // 4단계: 그룹 자체 삭제
+            group.remove();
+        }
+
+        // 그룹 우클릭 삭제
+        cy.on('cxttap', 'node.recipe-group', function(evt) {
+            var group = evt.target;
+            deleteGroupRecursively(group);
+        });
+
+        // 초기화
+        initGraph();
+    </script>
+</body>
+</html>
